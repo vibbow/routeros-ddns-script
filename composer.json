@@ -1,0 +1,6 @@
+{
+    "require": {
+        "alibabacloud/alidns": "^1.8",
+        "tencentcloud/dnspod": "^3.0"
+    }
+}
