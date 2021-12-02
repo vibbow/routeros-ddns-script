@@ -76,8 +76,8 @@ on-error {
 # 如IP有变动，则更新解析
 :if ($epicFail = false && $publicIP != $dnsIP) \
 do={
-    :local $callUrl ("https://ddns.vsean.net/ddns.php");
-    :local $postData ("service=" . $service . "&domain=" . $domainName . "&access_id=" . $accessId . "&access_secret=" . $accessSecret . "&domain_id=" . $domainID . "&record_id=" . $recordID);
+    :local callUrl ("https://ddns.vsean.net/ddns.php");
+    :local postData ("service=" . $service . "&domain=" . $domainName . "&access_id=" . $accessId . "&access_secret=" . $accessSecret . "&domain_id=" . $domainID . "&record_id=" . $recordID);
     :local fetchResult [/tool fetch url=$callUrl mode=https http-method=post http-data=$postData as-value output=user];
     :log info ("DDNS: " . $fetchResult->"data");
 }
