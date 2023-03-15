@@ -31,14 +31,16 @@ try {
         throw new Exception('domain is empty');
     }
 
+    $accessIP = getIP();
+    
     switch ($serviceType) {
         case 'aliyun':
             $ddnsService = new Aliyun($accessID, $accessSecret);
-            echo $ddnsService->ddns($domain);
+            echo $ddnsService->ddns($domain, $accessIP);
             break;
         case 'dnspod':
             $ddnsService = new Dnspod($accessID, $accessSecret);
-            echo $ddnsService->ddns($domain);
+            echo $ddnsService->ddns($domain, $accessIP);
             break;
         default:
             throw new Exception('Unknown service type');

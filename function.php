@@ -24,7 +24,7 @@ if (!function_exists('filterInputPostGet')) {
     }
 }
 
-function get_ip() {
+function getIP() {
     $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'];
     $ip = trim(explode(',', $ip)[0]);
 
@@ -33,4 +33,18 @@ function get_ip() {
     }
 
     return $ip;
+}
+
+function getRecordType($ip) {
+    if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+        $recordType = 'A';
+    }
+    else if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+        $recordType = 'AAAA';
+    }
+    else {
+        throw new Exception('Unknown IP type');
+    }
+
+    return $recordType;
 }

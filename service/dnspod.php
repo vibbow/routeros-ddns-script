@@ -27,15 +27,16 @@ class Dnspod
         $this->client = new DnspodClient($cred, "");
     }
 
-    public function ddns($domain)
+    public function ddns($domain, $accessIP)
     {
-        if (empty($this->domainID) || empty($this->recordID)) {
-            $this->getId($domain);
-        }
+        $recordType = getRecordType($accessIP);
 
+        if (empty($this->domainID) || empty($this->recordID)) {
+            $this->getId($domain, $recordType);
+        }
+        
         $record = $this->getRecord();
         $recordIP = $record->Value;
-        $accessIP = get_ip();
     
         if ($recordIP === $accessIP) {
             return 'IP not changed';
@@ -71,13 +72,13 @@ class Dnspod
         $this->client->ModifyDynamicDNS($request);
     }
 
-    private function getId($domain)
+    private function getId($domain, $recordType)
     {
         $domainID = null;
         $recordID = null;
 
-        if (file_exists(CACHE_DIR . md5($domain))) {
-            $content = file_get_contents(CACHE_DIR . md5($domain));
+        if (file_exists(CACHE_DIR . md5($domain . $recordType))) {
+            $content = file_get_contents(CACHE_DIR . md5($domain . $recordType));
             $record = json_decode($content, true);
 
             $this->domainID = $record['domain_id'];
@@ -116,7 +117,7 @@ class Dnspod
             $thisRecordType = $eachRecord->Type;
             $thisRecordDomain = $thisRecordName . '.' . $domainName;
             
-            if ($thisRecordType === 'A' && $thisRecordDomain === $domain) {
+            if ($thisRecordType === $recordType && $thisRecordDomain === $domain) {
                 $recordID = $thisRecordID;
                 break;
             }
@@ -129,10 +130,11 @@ class Dnspod
         $cacheData = [
             'domain'    => $domain,
             'domain_id' => $domainID,
-            'record_id' => $recordID
+            'record_id' => $recordID,
+            'record_type' => $recordType
         ];
 
-        file_put_contents(CACHE_DIR . md5($domain), json_encode($cacheData));
+        file_put_contents(CACHE_DIR . md5($domain . $recordType), json_encode($cacheData));
 
         $this->domainID = $domainID;
         $this->recordID = $recordID;

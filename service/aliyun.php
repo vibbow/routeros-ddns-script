@@ -13,11 +13,11 @@ class Aliyun
             ->asDefaultClient();
     }
 
-    public function ddns($domain)
+    public function ddns($domain, $accessIP)
     {
-        $record = $this->getRecord($domain);
+        $recordType = getRecordType($accessIP);
+        $record = $this->getRecord($domain, $recordType);
         $recordIP = $record->Value;
-        $accessIP = get_ip();
     
         if ($recordIP === $accessIP) {
             return 'IP not changed';
@@ -28,11 +28,12 @@ class Aliyun
         }
     }
 
-    private function getRecord($domain)
+    private function getRecord($domain, $recordType)
     {
         $response = Alidns::v20150109()
             ->DescribeSubDomainRecords()
             ->withSubDomain($domain)
+            ->withType($recordType)
             ->request();
 
         $record = $response->DomainRecords->Record[0] ?? null;
