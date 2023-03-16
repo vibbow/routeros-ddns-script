@@ -48,7 +48,7 @@
   :local interfaceIP [ /ipv6 address get [ :pick [ find interface=$wanInterface global ] 0 ] address ]
   :set $interfaceIP [ :pick $interfaceIP 0 [ :find $interfaceIP "/" ] ];
 
-  :set $publicIP [ :toip $interfaceIP ];
+  :set $publicIP [ :toip6 $interfaceIP ];
 } \
 on-error {
   :set $epicFail true;
