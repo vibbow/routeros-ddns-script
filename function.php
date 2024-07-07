@@ -25,8 +25,15 @@ if (!function_exists('filterInputPostGet')) {
 }
 
 function getIP() {
-    $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'];
-    $ip = trim(explode(',', $ip)[0]);
+    $manual_ip = filterInputPostGet('ip');
+
+    if (empty($manual_ip)) {
+        $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'];
+        $ip = trim(explode(',', $ip)[0]);
+    }
+    else {
+        $ip = $manual_ip;
+    }
 
     if ( ! filter_var($ip, FILTER_VALIDATE_IP)) {
         throw new Exception('No valid IP');
