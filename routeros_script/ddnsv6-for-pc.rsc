@@ -82,25 +82,21 @@ do={
     if ($eachAddress in fc00::/7) \
     do={
       :set $isLinkLocal true;
-      #:log info ($eachAddressStr . " is link local address");
     }
 
     if ($eachAddress in fd00::/8) \
     do={
       :set $isLinkLocal true;
-      #:log info ($eachAddressStr . " is link local address");
     }
 
     if ($eachAddress in fe80::/10) \
     do={
       :set $isLinkLocal true;
-      #:log info ($eachAddressStr . " is link local address");
     }
 
     if (!$isLinkLocal) \
     do={
       :set ipv6Address $eachAddressStr;
-      #:log info ($macAddress . " => " . $eachAddressStr);
     }
   }
 
