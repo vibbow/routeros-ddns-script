@@ -7,7 +7,7 @@
 ## 作者: vibbow
 ## https://vsean.net/
 ##
-## 修改日期: 2023/3/15
+## 修改日期: 2024/7/22
 ##
 ## 该脚本无任何售后技术支持
 ## Use it wisely
@@ -45,10 +45,58 @@
 
 # 获取当前接口IPv6地址
 :do {
-  :local interfaceIP [ /ipv6 address get [ :pick [ find interface=$wanInterface global ] 0 ] address ]
-  :set $interfaceIP [ :pick $interfaceIP 0 [ :find $interfaceIP "/" ] ];
+  :local interfaceIP;
+  :local interfaceIPList [ /ipv6 address find interface=$wanInterface global ];
+  :local interfaceIPListSize [ :len $interfaceIPList ];
 
-  :set $publicIP [ :toip6 $interfaceIP ];
+  # 如果接口上只有一个IP，那么直接使用这个IP
+  if ($interfaceIPListSize = 1) \
+  do={
+    :set $interfaceIP [ /ipv6 address get $interfaceIPList address ];
+  }
+
+  # 如果接口上有多个IP，那么找到非内网地址的IP
+  if ($interfaceIPListSize > 1) \
+  do={
+    :foreach id in $interfaceIPList \
+    do={
+      :local eachAddress [ /ipv6 address get $id address ];
+      :local isLinkLocal false;
+
+      if ($eachAddress in fc00::/7) \
+      do={
+        :set $isLinkLocal true;
+      }
+
+      if ($eachAddress in fd00::/8) \
+      do={
+        :set $isLinkLocal true;
+      }
+
+      if ($eachAddress in fe80::/10) \
+      do={
+        :set $isLinkLocal true;
+      }
+
+      if (!$isLinkLocal) \
+      do={
+        :set interfaceIP $eachAddress;
+      }
+    }
+  }
+
+  :local interfaceIPLength [ :len $interfaceIP ];
+
+  if ($interfaceIPLength = 0) \
+  do={
+    set $epicFail true;
+    :log error ("DDNSv6: No public IP on interface . " $wanInterface);
+  } \
+  else={
+    :set $interfaceIP [ :pick $interfaceIP 0 [ :find $interfaceIP "/" ] ];
+    :set $publicIP [ :toip6 $interfaceIP ];
+#    :log info ("DDNSv6: Current interface IP is " . $publicIP);
+  }
 } \
 on-error {
   :set $epicFail true;
@@ -58,6 +106,7 @@ on-error {
 # 获取当前解析的IP
 :do {
   :set $dnsIP [ :resolve $domainName ];
+#  :log info ("DDNSv6: Current resolved IP is " . $dnsIP);
 } \
 on-error {
   :set $epicFail true;
