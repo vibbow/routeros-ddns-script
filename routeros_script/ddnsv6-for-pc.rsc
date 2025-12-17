@@ -7,7 +7,7 @@
 ## 作者: vibbow
 ## https://vsean.net/
 ##
-## 修改日期: 2024/7/7
+## 修改日期: 2025/12/17
 ##
 ## 该脚本无任何售后技术支持
 ## Use it wisely
@@ -22,8 +22,8 @@
 # 用来查找计算机的端口 (通常是bridge)
 :local lanInterface "bridge";
 
-# 要使用DDNS的服务 (aliyun/dnspod)
-:local service "aliyun";
+# 要使用DDNS的服务 (alidns/aliesa/dnspod)
+:local service "alidns";
 
 # DDNS API接口 Access ID
 :local accessID "";
@@ -31,27 +31,13 @@
 # DDNS API接口 Access Secret
 :local accessSecret "";
 
-
-# 腾讯云 (dnspod) 设置
-#
-# 一般情况下无需设置此内容
-# 服务器会自动识别 domainID 和 recordID
-#
-# 如一直提示 "当前域名无权限，请返回域名列表。"
-# 则需要手动设置
-:local domainID "";
-:local recordID "";
-
-
 # ==== 以下内容无需修改 ====
 # =========================
 
-
 :local epicFail false;
 :local ipv6Address;
-:local ipv6AddressList
+:local ipv6AddressList;
 :local dnsAddress;
-
 
 # 获取指定mac的所有ipv6地址
 :do {
@@ -62,11 +48,11 @@
   if ($addressListLength = 0) \
   do={
     :log error ("No ipv6 address found for " . $macAddress);
-    :set $epicFail true;
+    :set epicFail true;
   }
 } \
 on-error {
-  :set $epicFail true:
+  :set epicFail true;
 }
 
 
@@ -81,17 +67,12 @@ do={
 
     if ($eachAddress in fc00::/7) \
     do={
-      :set $isLinkLocal true;
-    }
-
-    if ($eachAddress in fd00::/8) \
-    do={
-      :set $isLinkLocal true;
+      :set isLinkLocal true;
     }
 
     if ($eachAddress in fe80::/10) \
     do={
-      :set $isLinkLocal true;
+      :set isLinkLocal true;
     }
 
     if (!$isLinkLocal) \
@@ -104,17 +85,17 @@ do={
   if ($addressLength = 0) \
   do={
     :log error ("No public ipv6 address for " . $macAddress);
-    :set $epicFail true;
+    :set epicFail true;
   }
 }
 
 
 # 获取当前解析的IP
 :do {
-  set $dnsAddress [ :resolve $domainName ];
+  :set dnsAddress [ :resolve $domainName ];
 } \
 on-error {
-  :set $epicFail true;
+  :set epicFail true;
   :log error ("Resolve domain " . $domainName . " failed.");
 }
 
@@ -123,7 +104,7 @@ on-error {
 if ($epicFail = false && $ipv6Address != $dnsAddress) \
 do={
     :local callUrl ("https://ddns6.vsean.net/ddns.php");
-    :local postData ("service=" . $service . "&domain=" . $domainName . "&ip=" . $ipv6Address . "&access_id=" . $accessID . "&access_secret=" . $accessSecret . "&domain_id=" . $domainID . "&record_id=" . $recordID);
+    :local postData ("service=" . $service . "&domain=" . $domainName . "&ip=" . $ipv6Address . "&access_id=" . $accessID . "&access_secret=" . $accessSecret);
     :local fetchResult [/tool fetch url=$callUrl mode=https http-method=post http-data=$postData as-value output=user];
     :log info ("DDNSv6: " . $fetchResult->"data");
 }

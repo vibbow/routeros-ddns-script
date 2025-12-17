@@ -6,14 +6,15 @@ define('CACHE_DIR', BASE_DIR . 'cache' . DS);
 
 require_once(BASE_DIR . 'function.php');
 require_once(BASE_DIR . 'vendor' . DS . 'autoload.php');
-require_once(BASE_DIR . 'service' . DS . 'aliyun.php');
+require_once(BASE_DIR . 'service' . DS . 'alidns.php');
+require_once(BASE_DIR . 'service' . DS . 'aliesa.php');
 require_once(BASE_DIR . 'service' . DS . 'dnspod.php');
 
 try {
-    $serviceType = filterInputPostGet('service');
-    $accessID = filterInputPostGet('access_id');
+    $serviceType  = filterInputPostGet('service');
+    $accessID     = filterInputPostGet('access_id');
     $accessSecret = filterInputPostGet('access_secret');
-    $domain = filterInputPostGet('domain');
+    $domain       = filterInputPostGet('domain');
 
     if (empty($serviceType)) {
         throw new Exception('service type is empty');
@@ -32,20 +33,15 @@ try {
     }
 
     $accessIP = getIP();
-    
-    switch ($serviceType) {
-        case 'aliyun':
-            $ddnsService = new Aliyun($accessID, $accessSecret);
-            echo $ddnsService->ddns($domain, $accessIP);
-            break;
-        case 'dnspod':
-            $ddnsService = new Dnspod($accessID, $accessSecret);
-            echo $ddnsService->ddns($domain, $accessIP);
-            break;
-        default:
-            throw new Exception('Unknown service type');
-    }
-}
-catch (Exception $e) {
+
+    $ddnsService = match ($serviceType) {
+        'aliyun', 'alidns' => new AlidnsService($accessID, $accessSecret),
+        'aliesa' => new AliesaService($accessID, $accessSecret),
+        'dnspod' => new DnspodService($accessID, $accessSecret),
+        default => throw new Exception('Unknown service type'),
+    };
+
+    echo $ddnsService->ddns($domain, $accessIP);
+} catch (Exception $e) {
     echo $e->getMessage();
 }

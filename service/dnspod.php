@@ -1,88 +1,81 @@
 <?php
 
 use TencentCloud\Common\Credential;
-use TencentCloud\Common\Exception\TencentCloudSDKException;
 use TencentCloud\Dnspod\V20210323\DnspodClient;
-use TencentCloud\Dnspod\V20210323\Models\DescribeRecordRequest;
-use TencentCloud\Dnspod\V20210323\Models\ModifyDynamicDNSRequest;
 use TencentCloud\Dnspod\V20210323\Models\DescribeDomainListRequest;
 use TencentCloud\Dnspod\V20210323\Models\DescribeRecordListRequest;
+use TencentCloud\Dnspod\V20210323\Models\DescribeRecordRequest;
+use TencentCloud\Dnspod\V20210323\Models\ModifyDynamicDNSRequest;
+use TencentCloud\Dnspod\V20210323\Models\RecordInfo;
 
-class Dnspod
+class DnspodService
 {
-    private $client;
-    private $domainID;
-    private $recordID;
+    private DnspodClient $client;
+    private ?int $domainID = null;
+    private ?int $recordID = null;
 
-    public function __construct($accessID, $accessSecret) {
-        $domainID = filterInputPostGet('domain_id');
-        $recordID = filterInputPostGet('record_id');
-
-        if ( ! empty($domainID) && ! empty($recordID)) {
-            $this->domainID = intval($domainID);
-            $this->recordID = intval($recordID);
-        }
-
+    public function __construct(string $accessID, string $accessSecret)
+    {
         $cred = new Credential($accessID, $accessSecret);
-        $this->client = new DnspodClient($cred, "");
+        $this->client = new DnspodClient($cred, '');
     }
 
-    public function ddns($domain, $accessIP)
+    public function ddns(string $domain, string $accessIP): string
     {
-        $recordType = getRecordType($accessIP);
+        $recordType = getIPType($accessIP);
+        $this->getId($domain, $recordType);
 
-        if (empty($this->domainID) || empty($this->recordID)) {
-            $this->getId($domain, $recordType);
-        }
-        
         $record = $this->getRecord();
         $recordIP = $record->Value;
-    
+
         if ($recordIP === $accessIP) {
             return 'IP not changed';
         }
-        else {
-            $this->updateRecord($record, $accessIP);
-            return "IP update from {$recordIP} to {$accessIP}";
+
+        $this->updateRecord($record, $accessIP);
+        return "IP update from {$recordIP} to {$accessIP}";
+    }
+
+    private function getRecord(): RecordInfo
+    {
+        $request = new DescribeRecordRequest();
+        $request->DomainId = $this->domainID;
+        $request->RecordId = $this->recordID;
+
+        try {
+            $response = $this->client->DescribeRecord($request);
+            return $response->getRecordInfo();
+        } catch (Exception $e) {
+            throw new Exception('Failed to get record: ' . $e->getMessage());
         }
     }
 
-    private function getRecord()
+    private function updateRecord(RecordInfo $record, string $ip): void
     {
-        $request = new DescribeRecordRequest();
-        $request->setDomain('example.com');
-        $request->setDomainId($this->domainID);
-        $request->setRecordId($this->recordID);
-    
-        $response = $this->client->DescribeRecord($request);
-        $recordInfo = $response->getRecordInfo();
-    
-        return $recordInfo;
+        $request = new ModifyDynamicDNSRequest();
+        $request->DomainId = $this->domainID;
+        $request->RecordId = $this->recordID;
+        $request->Value = $ip;
+        $request->SubDomain = $record->SubDomain;
+        $request->RecordLine = $record->RecordLine;
+
+        try {
+            $this->client->ModifyDynamicDNS($request);
+        } catch (Exception $e) {
+            throw new Exception('Failed to update record: ' . $e->getMessage());
+        }
     }
 
-    private function updateRecord($record, $ip)
+    private function getId(string $domain, string $recordType): void
     {
-        $request = New ModifyDynamicDNSRequest();
-        $request->setDomain('example.com');
-        $request->setDomainId($this->domainID);
-        $request->setRecordId($this->recordID);
-        $request->setValue($ip);
-        $request->setSubDomain($record->SubDomain);
-        $request->setRecordLine($record->RecordLine);
-        $this->client->ModifyDynamicDNS($request);
-    }
+        $cacheFile = CACHE_DIR . md5('dnspod' . $domain . $recordType);
 
-    private function getId($domain, $recordType)
-    {
-        $domainID = null;
-        $recordID = null;
+        if (file_exists($cacheFile)) {
+            $content = file_get_contents($cacheFile);
+            $cache = json_decode($content, true);
 
-        if (file_exists(CACHE_DIR . md5($domain . $recordType))) {
-            $content = file_get_contents(CACHE_DIR . md5($domain . $recordType));
-            $record = json_decode($content, true);
-
-            $this->domainID = $record['domain_id'];
-            $this->recordID = $record['record_id'];
+            $this->domainID = $cache['domain_id'];
+            $this->recordID = $cache['record_id'];
             return;
         }
 
@@ -90,33 +83,39 @@ class Dnspod
         $response = $this->client->DescribeDomainList($request);
         $domainList = $response->getDomainList();
 
+        $domainID = null;
+        $domainName = null;
+
         foreach ($domainList as $eachDomain) {
             $thisDomainName = $eachDomain->Name;
-            $thisdomainID = $eachDomain->DomainId;
-    
+            $thisDomainID = $eachDomain->DomainId;
+
             if (str_ends_with($domain, $thisDomainName)) {
-                $domainID = $thisdomainID;
+                $domainID = $thisDomainID;
                 $domainName = $thisDomainName;
                 break;
             }
         }
-    
+
         if (empty($domainID)) {
-            throw new Exception("Domain not found");
+            throw new Exception('Domain not found');
         }
 
         $request = new DescribeRecordListRequest();
-        $request->setDomain('example.com');
-        $request->setDomainId($domainID);
+        $request->Domain = $domainName;
+        $request->DomainId = $domainID;
+
         $response = $this->client->DescribeRecordList($request);
         $recordList = $response->getRecordList();
+
+        $recordID = null;
 
         foreach ($recordList as $eachRecord) {
             $thisRecordID = $eachRecord->RecordId;
             $thisRecordName = trim($eachRecord->Name, '.');
             $thisRecordType = $eachRecord->Type;
             $thisRecordDomain = $thisRecordName . '.' . $domainName;
-            
+
             if ($thisRecordType === $recordType && $thisRecordDomain === $domain) {
                 $recordID = $thisRecordID;
                 break;
@@ -124,17 +123,22 @@ class Dnspod
         }
 
         if (empty($recordID)) {
-            throw new Exception("Record not found");
+            throw new Exception('Record not found');
+        }
+
+        // 确保缓存目录存在
+        if (!is_dir(CACHE_DIR)) {
+            mkdir(CACHE_DIR, 0755, true);
         }
 
         $cacheData = [
-            'domain'    => $domain,
-            'domain_id' => $domainID,
-            'record_id' => $recordID,
-            'record_type' => $recordType
+            'domain'      => $domain,
+            'domain_id'   => $domainID,
+            'record_type' => $recordType,
+            'record_id'   => $recordID,
         ];
 
-        file_put_contents(CACHE_DIR . md5($domain . $recordType), json_encode($cacheData));
+        file_put_contents($cacheFile, json_encode($cacheData));
 
         $this->domainID = $domainID;
         $this->recordID = $recordID;
