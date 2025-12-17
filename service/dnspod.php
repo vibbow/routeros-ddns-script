@@ -39,6 +39,7 @@ class DnspodService
     private function getRecord(): RecordInfo
     {
         $request = new DescribeRecordRequest();
+        $request->Domain = '';
         $request->DomainId = $this->domainID;
         $request->RecordId = $this->recordID;
 
@@ -53,6 +54,7 @@ class DnspodService
     private function updateRecord(RecordInfo $record, string $ip): void
     {
         $request = new ModifyDynamicDNSRequest();
+        $request->Domain = '';
         $request->DomainId = $this->domainID;
         $request->RecordId = $this->recordID;
         $request->Value = $ip;

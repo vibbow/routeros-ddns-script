@@ -1,5 +1,7 @@
 <?php
 
+error_reporting(E_ALL & ~E_DEPRECATED);
+
 define('DS', DIRECTORY_SEPARATOR);
 define('BASE_DIR', __DIR__ . DS);
 define('CACHE_DIR', BASE_DIR . 'cache' . DS);
