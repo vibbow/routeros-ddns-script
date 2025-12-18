@@ -65,7 +65,8 @@ class AliesaService
     {
         $req = new UpdateRecordRequest();
         $req->recordId = $record->recordId;
-        $req->data = new UpdateRecordRequest\data(['value' => $ip]);
+        $req->data = new UpdateRecordRequest\data();
+        $req->data->value = $ip;
 
         try {
             $this->client->UpdateRecord($req);

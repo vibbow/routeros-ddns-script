@@ -66,7 +66,7 @@ class AlidnsService
     {
         $req = new UpdateDomainRecordRequest();
         $req->recordId = $record->recordId;
-        $req->rr = $record->RR;
+        $req->RR = $record->RR;
         $req->type = $record->type;
         $req->value = $ip;
 
