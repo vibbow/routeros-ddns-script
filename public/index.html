@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RouterOS DDNS</title>
-<meta name="description" content="为 RouterOS 提供阿里云 DNS / 阿里云 ESA / 腾讯云 DNSPod 动态域名解析的免费接口与脚本。">
+<meta name="description" content="为 RouterOS 提供阿里云 DNS / 阿里云 ESA / 腾讯云 DNSPod 动态域名解析的免费接口与脚本，以及 WireGuard Mesh 节点地址同步。">
 <style>
   :root {
     --bg: #f7f7f5;
@@ -50,6 +50,23 @@
   a { color: var(--accent); }
 
   .lead { color: var(--muted); font-size: 17px; }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin: 32px 0 28px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tabs a {
+    padding: 8px 16px;
+    margin-bottom: -1px;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .tabs a:hover { color: var(--text); }
+  .tabs a[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
 
   .providers { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
   .providers span {
@@ -126,18 +143,27 @@
 <main>
   <header>
     <h1>RouterOS DDNS</h1>
-    <p class="lead">让 MikroTik RouterOS 路由器在公网 IP 变化时，自动更新你的域名解析。支持 IPv4 与 IPv6，无需在路由器上处理 API 签名。</p>
-    <div class="providers">
-      <span>阿里云 DNS</span>
-      <span>阿里云 ESA</span>
-      <span>腾讯云 DNSPod</span>
-    </div>
+    <p class="lead">为 MikroTik RouterOS 路由器提供的免费脚本与接口，适用于 RouterOS v7 最新的 stable 与 long-term 版本。</p>
   </header>
+
+  <nav class="tabs" role="tablist">
+    <a href="#ddns" id="tab-ddns" role="tab" aria-controls="ddns">DDNS 动态域名</a>
+    <a href="#mesh" id="tab-mesh" role="tab" aria-controls="mesh">WireGuard Mesh</a>
+  </nav>
+
+  <div class="panel" id="ddns" role="tabpanel" aria-labelledby="tab-ddns">
+  <p>让路由器在公网 IP 变化时，自动更新你的域名解析。支持 IPv4 与 IPv6，无需在路由器上处理 API 签名。</p>
+  <div class="providers">
+    <span>阿里云 DNS</span>
+    <span>阿里云 ESA</span>
+    <span>腾讯云 DNSPod</span>
+  </div>
 
   <section>
     <h2>工作原理</h2>
-    <p>路由器上的脚本定时比较当前公网 IP 与域名解析结果。只有两者不一致时，才会把域名和 API 密钥提交到本服务，由本服务调用 DNS 服务商的接口更新解析记录。</p>
-    <p>本服务不保存你的 Access Secret。</p>
+    <p>路由器上的脚本每次运行时，在路由器本地取得当前的公网 IP，并与域名的解析结果比较。只有两者不一致时，才会把这个 IP 连同域名和 API 密钥一起提交到本服务，由本服务调用 DNS 服务商的接口更新解析记录。</p>
+    <p>要写入的 IP 由脚本明确提交，而不是由服务端根据请求来源推断，所以多 WAN 或有策略路由时也不会写错线路。</p>
+    <p>请求通过 HTTPS 发送，脚本会校验服务器证书。本服务不保存你的 Access Secret。</p>
   </section>
 
   <section>
@@ -146,21 +172,21 @@
       <div class="script">
         <div>
           <strong>IPv4 DDNS</strong>
-          <small>读取 WAN 接口地址；如果是内网地址（光猫拨号等情况），会自动获取真实公网 IP。</small>
+          <small>读取 WAN 接口上的地址。如果是内网地址或运营商级 NAT 地址（光猫拨号等情况），会通过外部服务获取真实的公网 IP。</small>
         </div>
         <a class="download" href="/script/ddns.rsc" download>下载 ddns.rsc</a>
       </div>
       <div class="script">
         <div>
           <strong>IPv6 DDNS（路由器）</strong>
-          <small>把 WAN 接口上的公网 IPv6 地址更新到域名。</small>
+          <small>把 WAN 接口上的公网 IPv6 地址更新到域名，自动跳过 ULA 地址和已弃用的地址。</small>
         </div>
         <a class="download" href="/script/ddnsv6.rsc" download>下载 ddnsv6.rsc</a>
       </div>
       <div class="script">
         <div>
           <strong>IPv6 DDNS（局域网设备）</strong>
-          <small>按 MAC 地址找到局域网内某台电脑的公网 IPv6 地址，并更新到域名。</small>
+          <small>按 MAC 地址在 LAN 接口（通常是 bridge）上找到某台电脑的公网 IPv6 地址，并更新到域名。只要当前解析仍是这台电脑的地址之一就不更新，避免在稳定地址和临时地址之间来回切换。</small>
         </div>
         <a class="download" href="/script/ddnsv6-for-pc.rsc" download>下载 ddnsv6-for-pc.rsc</a>
       </div>
@@ -172,11 +198,12 @@
     <ol>
       <li>在 DNS 服务商处先手动添加一条 A（IPv4）或 AAAA（IPv6）记录，值可以随便填。</li>
       <li>创建 API 密钥（Access ID / Access Secret）。</li>
-      <li>打开下载的脚本，填写顶部的域名、接口名、<code>service</code> 和密钥。</li>
+      <li>打开下载的脚本，填写顶部的域名、<code>service</code> 和密钥，以及 WAN 接口名（局域网设备版填电脑的 MAC 地址和 LAN 接口名）。</li>
       <li>在 RouterOS 的 <code>System → Scripts</code> 中新建脚本，粘贴内容。</li>
       <li>在 <code>System → Scheduler</code> 中添加定时任务运行该脚本，例如每 10 分钟一次。</li>
     </ol>
-    <p style="margin-top: 14px">更详细的图文说明见 <a href="https://www.vsean.net/routeros-ddns-script/">这篇文章</a>。</p>
+    <p style="margin-top: 14px">运行结果会写入路由器日志，以 <code>DDNS:</code>（IPv4）或 <code>DDNSv6:</code>（IPv6）开头。更新成功时显示 <code>IP update from … to …</code>，解析已是最新时显示 <code>IP not changed</code>。</p>
+    <p>更详细的图文说明见 <a href="https://www.vsean.net/routeros-ddns-script/">这篇文章</a>。</p>
   </section>
 
   <section>
@@ -195,10 +222,77 @@
     <h2>安全建议</h2>
     <p class="note">建议为 DDNS 单独创建 RAM 子账号（阿里云）或子用户（腾讯云），只授予 DNS 解析的管理权限，不要使用主账号密钥。</p>
   </section>
+  </div>
+
+  <div class="panel" id="mesh" role="tabpanel" aria-labelledby="tab-mesh">
+  <p>用 WireGuard 把多台 RouterOS 路由器组成网状网络时，每台路由器的公网 IP 都可能变化。Mesh 脚本让各节点定时到本服务“签到”，自动把其他节点的最新地址和端口写到本机的 WireGuard peer 里，不需要为每个节点单独配置 DDNS。</p>
+
+  <section>
+    <h2>工作原理</h2>
+    <p>每次运行时，脚本会把本机的系统名称、WireGuard 公钥和监听端口提交到本服务。本服务以这次请求的来源 IP 作为该节点的地址登记下来，并返回同一 Mesh 内其他节点的信息。</p>
+    <p>脚本按公钥找到对应的 peer，只在地址或端口有变化时才更新它的 endpoint。</p>
+  </section>
+
+  <section>
+    <h2>脚本下载</h2>
+    <div class="scripts">
+      <div class="script">
+        <div>
+          <strong>WireGuard Mesh 同步</strong>
+          <small>登记本机信息，并更新同一 Mesh 内其他节点的 endpoint 地址与端口。</small>
+        </div>
+        <a class="download" href="/script/mesh.rsc" download>下载 mesh.rsc</a>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>使用方法</h2>
+    <ol>
+      <li>在每台路由器上创建 WireGuard 接口，并手动把其他节点添加为 peer（公钥、Allowed Address 等）。脚本只更新已有 peer 的 endpoint，不会新增或删除 peer。</li>
+      <li>为每台路由器设置不同的系统名称（<code>System → Identity</code>），只能包含字母、数字、<code>_</code> 和 <code>-</code>，不能是默认的 <code>MikroTik</code>。</li>
+      <li>打开下载的脚本，填写 Mesh ID 和 WireGuard 接口名。同一 Mesh 内的所有节点使用相同的 Mesh ID。如果用 IPv6 地址组网，把服务器改为 <code>ddns6.vsean.net</code>。</li>
+      <li>在每台路由器上添加脚本和定时任务。运行结果会写入日志，以 <code>Mesh:</code> 开头。</li>
+    </ol>
+    <p style="margin-top: 14px">更详细的说明见 <a href="https://www.vsean.net/routeros-wireguard-mesh-sync/">这篇文章</a>。</p>
+  </section>
+
+  <section>
+    <h2>安全建议</h2>
+    <p class="note">Mesh ID 长度为 8～32 位，只能包含小写字母、数字、<code>_</code> 和 <code>-</code>。知道 Mesh ID 就能加入这个 Mesh，所以它相当于密码，请使用足够长的随机字符串。</p>
+  </section>
+  </div>
 
   <footer>
     作者 <a href="https://www.vsean.net/">vibbow</a> · 本服务免费提供，不提供售后技术支持
   </footer>
 </main>
+<script>
+  // 按地址栏的 #ddns / #mesh 显示对应标签页，默认显示 DDNS
+  (function () {
+    var tabs = document.querySelectorAll('.tabs a');
+
+    function show() {
+      var current = location.hash === '#mesh' ? 'mesh' : 'ddns';
+
+      tabs.forEach(function (tab) {
+        var id = tab.getAttribute('aria-controls');
+        tab.setAttribute('aria-selected', id === current ? 'true' : 'false');
+        document.getElementById(id).hidden = id !== current;
+      });
+    }
+
+    tabs.forEach(function (tab) {
+      tab.addEventListener('click', function (e) {
+        e.preventDefault();
+        history.replaceState(null, '', tab.getAttribute('href'));
+        show();
+      });
+    });
+
+    window.addEventListener('hashchange', show);
+    show();
+  })();
+</script>
 </body>
 </html>
