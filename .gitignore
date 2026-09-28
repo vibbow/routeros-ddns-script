@@ -1,4 +1,9 @@
 composer.lock
 vendor/
-cache/
 test/
+cache/*
+!cache/.placeholder
+logs/*
+!logs/.placeholder
+mesh/nodes/*
+!mesh/nodes/.placeholder
