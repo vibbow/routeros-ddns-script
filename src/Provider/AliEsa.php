@@ -49,8 +49,9 @@ final class AliEsa extends ZonedProvider
         // ESA stores A and AAAA under one "A/AAAA" type; tell them apart by value.
         foreach ($response['Records'] ?? [] as $record) {
             $value = $record['Data']['Value'] ?? '';
+            $sameName = strtolower($record['RecordName']) === $domain;
 
-            if (strtolower($record['RecordName']) === $domain && Ip::isValid($value) && Ip::recordType($value) === $type) {
+            if ($sameName && Ip::isValid($value) && Ip::recordType($value) === $type) {
                 return new Record($value, $record);
             }
         }
