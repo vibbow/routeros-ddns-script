@@ -96,7 +96,7 @@ do={
   :local postData ("service=" . $service . "&domain=" . $domainName . "&ip=" . $publicIP . "&access_id=" . $accessID . "&access_secret=" . $accessSecret);
 
   :do {
-    :local fetchResult [ /tool fetch url="https://ddns.vsean.net/ddns.php" http-method=post http-data=$postData as-value output=user ];
+    :local fetchResult [ /tool fetch url="https://ddns.vsean.net/ddns.php" check-certificate=yes-without-crl http-method=post http-data=$postData as-value output=user ];
     :log info ("DDNS: " . ($fetchResult->"data"));
   } \
   on-error {

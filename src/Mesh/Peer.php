@@ -8,8 +8,8 @@ use Ddns\Support\Request;
 final class Peer
 {
     /**
-     * Validates the submitting node. Every field ends up inside a RouterOS script run by the
-     * other peers, so each must be strictly validated to prevent script injection.
+     * Validates the submitting node. Every field is sent to the other peers and written into
+     * their WireGuard configuration, so each must be strictly validated.
      *
      * @return array{identity_name: string, wg_public_key: string, remote_ip: string, listen_port: string}
      */

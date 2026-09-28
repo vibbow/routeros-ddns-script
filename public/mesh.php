@@ -17,31 +17,31 @@ if ($meshId === null) {
     exit;
 }
 
-header('Content-Type: text/plain; charset=utf-8');
+header('Content-Type: application/json; charset=utf-8');
 
+// RouterOS 的 fetch 遇到非 2xx 状态码时读不到响应内容，所以错误也以 200 返回
 try {
     $peer = Peer::fromRequest();
     $peers = (new Registry(Paths::MESH . 'nodes/'))->upsert($meshId, $peer);
 } catch (DdnsException $e) {
-    echo ':log error ("' . $e->getMessage() . '")';
+    echo json_encode(['error' => $e->getMessage()]);
     exit;
 }
 
-// 生成脚本
-$template = file_get_contents(Paths::MESH . 'template.rsc');
+// 返回除自己以外的节点，由路由器上的脚本自行更新 WireGuard peer
+$result = [];
 
-echo '/interface/wireguard/peers' . PHP_EOL . PHP_EOL;
-
-foreach ($peers as $key => $item) {
+foreach ($peers as $item) {
     if ($item['identity_name'] === $peer['identity_name']) {
         continue;
     }
 
-    echo strtr($template, [
-        '$ID$'   => $key + 1,
-        '#NAME#' => $item['identity_name'],
-        '$PK$'   => $item['wg_public_key'],
-        '$EA$'   => $item['remote_ip'],
-        '$EP$'   => $item['listen_port'],
-    ]);
+    $result[] = [
+        'name'             => $item['identity_name'],
+        'public_key'       => $item['wg_public_key'],
+        'endpoint_address' => $item['remote_ip'],
+        'endpoint_port'    => (int) $item['listen_port'],
+    ];
 }
+
+echo json_encode(['peers' => $result], JSON_UNESCAPED_SLASHES);
